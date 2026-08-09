@@ -59,16 +59,38 @@ enum MessageType get_message_type(const char *buffer) {
         return PRIVATE;
     }
 
-    if (buffer[0] == '/') {
+    if (buffer[0] == '>') {
         return COMMAND;
     }
 
     return PUBLIC;
 }
 
+
+void handle_command(int sender_index, char *command){
+    if (strcmp(command, ">users") == 0){
+        char user_list[1200];
+        snprintf(user_list, sizeof(user_list), "[WAYP] Online users :\n");
+
+        pthread_mutex_lock(&client_mutex);
+        for (int i = 0; i < MAX_CLIENTS; i++){
+            if(clients[i].socket != -1){
+                snprintf(
+                    user_list + strlen(user_list),
+                    sizeof(user_list) - strlen(user_list),
+                    "- %s\n",
+                    clients[i].username
+                );
+            }
+        }
+        pthread_mutex_unlock(&client_mutex);
+
+        send(clients[sender_index].socket, user_list, strlen(user_list), 0);
+    }
+}
+
 void handle_private(int sender_index, int receiver_index, char *msg) {
     char private_message[1200];
-
     snprintf(
         private_message,
         sizeof(private_message),
@@ -134,7 +156,9 @@ void *handle_client(void *arg) {
     }
 
     username[bytes_received] = '\0';
+    username[strcspn(username, "\r\n")] = '\0';
 
+    
     pthread_mutex_lock(&client_mutex);
 
     strncpy(
@@ -184,6 +208,7 @@ void *handle_client(void *arg) {
         }
 
         buffer[bytes_received] = '\0';
+        buffer[strcspn(buffer, "\r\n")] = '\0';
 
         enum MessageType type = get_message_type(buffer);
 
@@ -250,21 +275,7 @@ void *handle_client(void *arg) {
             }
 
             case COMMAND: {
-                char error_message[200];
-
-                snprintf(
-                    error_message,
-                    sizeof(error_message),
-                    "[WAYP] Commands aren't implemented yet.\n"
-                );
-
-                send(
-                    client_fd,
-                    error_message,
-                    strlen(error_message),
-                    0
-                );
-
+                handle_command(client_index, buffer);
                 break;
             }
 
