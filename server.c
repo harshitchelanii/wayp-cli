@@ -24,6 +24,16 @@ enum MessageType {
     PUBLIC
 };
 
+struct Command {
+    char *name;
+    char *description;
+};
+
+struct Command commands[] = {
+    {">users", "List online users"},
+    {">help", "Show available commands"}
+};
+
 int find_client_by_username(const char *username) {
     pthread_mutex_lock(&client_mutex);
 
@@ -87,6 +97,36 @@ void handle_command(int sender_index, char *command){
 
         send(clients[sender_index].socket, user_list, strlen(user_list), 0);
     }
+    else if (strcmp(command, ">help") == 0)
+{
+    char help_message[1200];
+
+    snprintf(
+        help_message,
+        sizeof(help_message),
+        "[WAYP] Available commands:\n"
+    );
+
+    int command_count = sizeof(commands) / sizeof(commands[0]);
+
+    for (int i = 0; i < command_count; i++)
+    {
+        snprintf(
+            help_message + strlen(help_message),
+            sizeof(help_message) - strlen(help_message),
+            "%s - %s\n",
+            commands[i].name,
+            commands[i].description
+        );
+    }
+
+    send(
+        clients[sender_index].socket,
+        help_message,
+        strlen(help_message),
+        0
+    );
+}
 }
 
 void handle_private(int sender_index, int receiver_index, char *msg) {
