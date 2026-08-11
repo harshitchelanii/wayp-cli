@@ -27,11 +27,15 @@ enum MessageType {
 struct Command {
     char *name;
     char *description;
+    void (*handler)(int sender_index, char *command);
 };
 
+void handle_users(int sender_index, char *command);
+void handle_help(int sender_index, char *command);
+
 struct Command commands[] = {
-    {">users", "List online users"},
-    {">help", "Show available commands"}
+    {">users", "List online users", handle_users},
+    {">help", "Show available commands", handle_help}
 };
 
 int find_client_by_username(const char *username) {
@@ -77,9 +81,8 @@ enum MessageType get_message_type(const char *buffer) {
 }
 
 
-void handle_command(int sender_index, char *command){
-    if (strcmp(command, ">users") == 0){
-        char user_list[1200];
+void handle_users(int sender_index, char *command){
+     char user_list[1200];
         snprintf(user_list, sizeof(user_list), "[WAYP] Online users :\n");
 
         pthread_mutex_lock(&client_mutex);
@@ -97,9 +100,9 @@ void handle_command(int sender_index, char *command){
 
         send(clients[sender_index].socket, user_list, strlen(user_list), 0);
     }
-    else if (strcmp(command, ">help") == 0)
-{
-    char help_message[1200];
+
+void handle_help(int sender_index, char *command){
+     char help_message[1200];
 
     snprintf(
         help_message,
@@ -127,6 +130,15 @@ void handle_command(int sender_index, char *command){
         0
     );
 }
+
+void handle_command(int sender_index, char *command){
+    int command_count = sizeof(commands) / sizeof(commands[0]);
+    for(int i = 0; i < command_count; i++){
+        if(strcmp(command, commands[i].name) == 0){
+            commands[i].handler(sender_index, command);
+            break;
+        }
+    }
 }
 
 void handle_private(int sender_index, int receiver_index, char *msg) {
