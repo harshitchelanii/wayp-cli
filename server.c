@@ -131,6 +131,25 @@ void handle_help(int sender_index, char *command){
     );
 }
 
+
+
+void handle_whoami(int sender, char *command){
+    char whoami_message[200];
+    snprintf(
+        whoami_message,
+        sizeof(whoami_message),
+        "[WAYP] You are : %s\n",
+        clients[sender].username
+    );
+
+    send(
+    clients[sender].socket,
+    whoami_message,
+    strlen(whoami_message),
+    0
+);
+
+}
 void handle_command(int sender_index, char *command){
     int command_count = sizeof(commands) / sizeof(commands[0]);
     for(int i = 0; i < command_count; i++){
