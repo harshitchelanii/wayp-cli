@@ -32,10 +32,12 @@ struct Command {
 
 void handle_users(int sender_index, char *command);
 void handle_help(int sender_index, char *command);
+void handle_whoami(int sender, char *command);
 
 struct Command commands[] = {
     {">users", "List online users", handle_users},
-    {">help", "Show available commands", handle_help}
+    {">help", "Show available commands", handle_help},
+    {">whoami", "Show your username", handle_whoami}
 };
 
 int find_client_by_username(const char *username) {
