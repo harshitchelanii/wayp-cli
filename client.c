@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <pthread.h>
 
+
 void *receive_messages(void *arg)
 {
     int client_fd = *(int *)arg;
@@ -15,7 +16,12 @@ void *receive_messages(void *arg)
 
     while(1)
     {
-        int bytes_received = recv(client_fd, buffer, sizeof(buffer)-1, 0);
+        int bytes_received = recv(
+            client_fd,
+            buffer,
+            sizeof(buffer) - 1,
+            0
+        );
 
         if(bytes_received <= 0)
         {
@@ -25,8 +31,17 @@ void *receive_messages(void *arg)
 
         buffer[bytes_received] = '\0';
 
-        printf("%s", buffer);
-        fflush(stdout);
+        if(strcmp(buffer, "__CLEAR__") == 0)
+        {
+            printf("\033[2J\033[H");
+            printf("[WAYP] Messages cleared.\n");
+            fflush(stdout);
+        }
+        else
+        {
+            printf("%s", buffer);
+            fflush(stdout);
+        }
     }
 
     return NULL;
