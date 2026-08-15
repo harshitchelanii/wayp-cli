@@ -33,11 +33,13 @@ struct Command {
 void handle_users(int sender_index, char *command);
 void handle_help(int sender_index, char *command);
 void handle_whoami(int sender, char *command);
+void handle_clear(int sender_index, char *command);
 
 struct Command commands[] = {
     {">users", "List online users", handle_users},
     {">help", "Show available commands", handle_help},
-    {">whoami", "Show your username", handle_whoami}
+    {">whoami", "Show your username", handle_whoami},
+    {">clear", "Clear your terminal", handle_clear}
 };
 
 int find_client_by_username(const char *username) {
@@ -80,6 +82,17 @@ enum MessageType get_message_type(const char *buffer) {
     }
 
     return PUBLIC;
+}
+
+
+
+void handle_clear(int sender_index, char *command){
+    char clear_message[30];
+    snprintf(clear_message, sizeof(clear_message),"[WAYP] Messages cleared.\n");
+    send(clients[sender_index].socket, "\033[2J\033[H[WAYP] Messages cleared.\n",
+    strlen("\033[2J\033[H[WAYP] Messages cleared.\n"),
+    0
+);
 }
 
 
