@@ -166,12 +166,27 @@ void handle_whoami(int sender, char *command){
 
 }
 void handle_command(int sender_index, char *command){
+    int command_found = 0;
+    char command_unknown[200];
     int command_count = sizeof(commands) / sizeof(commands[0]);
     for(int i = 0; i < command_count; i++){
         if(strcmp(command, commands[i].name) == 0){
             commands[i].handler(sender_index, command);
+            command_found = 1;
             break;
         }
+    }
+    if(command_found == 0){
+        snprintf(command_unknown,
+        sizeof(command_unknown),
+        "[WAYP] Command %s not found.\n",
+        command
+        );
+        
+        send(clients[sender_index].socket ,
+        command_unknown,
+        strlen(command_unknown),
+        0   );
     }
 }
 
