@@ -34,12 +34,14 @@ void handle_users(int sender_index, char *command);
 void handle_help(int sender_index, char *command);
 void handle_whoami(int sender, char *command);
 void handle_clear(int sender_index, char *command);
+void handle_pong(int sender_index, char *command);
 
 struct Command commands[] = {
     {">users", "List online users", handle_users},
     {">help", "Show available commands", handle_help},
     {">whoami", "Show your username", handle_whoami},
-    {">clear", "Clear your terminal", handle_clear}
+    {">clear", "Clear your terminal", handle_clear},
+    {">pong", "Check server response", handle_pong}
 };
 
 int find_client_by_username(const char *username) {
@@ -165,6 +167,19 @@ void handle_whoami(int sender, char *command){
 );
 
 }
+
+
+void handle_pong(int sender_index, char *command)
+{
+    send(clients[sender_index].socket,
+    "[WAYP] pong!\n",
+    strlen("[WAYP] pong!\n"),
+    0
+    );
+}
+
+
+
 void handle_command(int sender_index, char *command){
     int command_found = 0;
     char command_unknown[200];
