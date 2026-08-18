@@ -1,5 +1,15 @@
 # Wayp-CLI
 
+## Current Status
+
+- TCP multi-client chat server
+- Private messaging
+- Command handler system
+- `>users`
+- `>help`
+- `>whoami`
+- `>clear`
+
 A lightweight, plugin-based terminal chat application written in C.
 
 ## Features
