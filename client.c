@@ -1,16 +1,26 @@
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <pthread.h>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #pragma comment(lib, "ws2_32.lib")
+    typedef SOCKET socket_t;
+#else
+    #include <unistd.h>
+    #include <arpa/inet.h>
+    #include <netinet/in.h>
+    #include <sys/socket.h>
+    typedef int socket_t;
+    #define closesocket close
+#endif
 
 
 void *receive_messages(void *arg)
 {
-    int client_fd = *(int *)arg;
+    socket_t client_fd = *(socket_t *)arg;
 
     char buffer[1024];
 
@@ -52,11 +62,15 @@ void *receive_messages(void *arg)
 
 int main(void){
     char username[50];
-    int client_fd = socket(AF_INET, SOCK_STREAM, 0);
+#ifdef _WIN32
+    WSADATA wsa_data;
+    WSAStartup(MAKEWORD(2, 2), &wsa_data);
+#endif
+    socket_t client_fd = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
-    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
+    inet_pton(AF_INET, "182.16.54.79", &server_addr.sin_addr);
     if(connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
         perror("Connection Failed.\n");
         exit(EXIT_FAILURE);
@@ -67,7 +81,7 @@ int main(void){
     if (username[strlen(username) - 1] == '\n'){
         username[strlen(username)- 1] = '\0';
     }
-    int *socket_ptr = malloc(sizeof(int));
+    socket_t *socket_ptr = malloc(sizeof(socket_t));
 
     *socket_ptr = client_fd;
 
