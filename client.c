@@ -70,7 +70,7 @@ int main(void){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
-    inet_pton(AF_INET, "182.16.54.79", &server_addr.sin_addr);
+    inet_pton(AF_INET, "172.24.128.1", &server_addr.sin_addr);
     if(connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
         perror("Connection Failed.\n");
         exit(EXIT_FAILURE);
