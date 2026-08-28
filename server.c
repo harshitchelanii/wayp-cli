@@ -8,6 +8,17 @@
 #include <pthread.h>
 #include <sys/socket.h>
 
+static int send_all(int sockfd, const void *buf, size_t len){
+    size_t total_sent = 0;
+    const char *ptr = (const char *)buf;
+    while (total_sent < len){
+        ssize_t bytes_sent = send(sockfd,
+            ,ptr + total_sent,
+             len - total_sent,
+             0)
+    } 
+}
+
 #define MAX_CLIENTS 100
 
 struct Client {
