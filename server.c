@@ -13,10 +13,16 @@ static int send_all(int sockfd, const void *buf, size_t len){
     const char *ptr = (const char *)buf;
     while (total_sent < len){
         ssize_t bytes_sent = send(sockfd,
-            ,ptr + total_sent,
-             len - total_sent,
-             0)
+            ptr + total_sent,
+            len - total_sent,
+             0);
+        if(bytes_sent <= 0){
+        return -1;
+
     } 
+    total_sent += bytes_sent;
+}
+    return 0;
 }
 
 #define MAX_CLIENTS 100
