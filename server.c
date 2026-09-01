@@ -84,7 +84,7 @@ void broadcast_message(const char *message, int sender_socket) {
         if (clients[i].socket != -1 &&
             clients[i].socket != sender_socket) {
 
-            send(clients[i].socket, message, strlen(message), 0);
+            send_all(clients[i].socket, message, strlen(message));
         }
     }
 
@@ -108,9 +108,8 @@ enum MessageType get_message_type(const char *buffer) {
 void handle_clear(int sender_index, char *command){
     char clear_message[30];
     snprintf(clear_message, sizeof(clear_message),"[WAYP] Messages cleared.\n");
-    send(clients[sender_index].socket, "\033[2J\033[H[WAYP] Messages cleared.\n",
-    strlen("\033[2J\033[H[WAYP] Messages cleared.\n"),
-    0
+    send_all(clients[sender_index].socket, "\033[2J\033[H[WAYP] Messages cleared.\n",
+    strlen("\033[2J\033[H[WAYP] Messages cleared.\n")
 );
 }
 
@@ -132,7 +131,7 @@ void handle_users(int sender_index, char *command){
         }
         pthread_mutex_unlock(&client_mutex);
 
-        send(clients[sender_index].socket, user_list, strlen(user_list), 0);
+        send_all(clients[sender_index].socket, user_list, strlen(user_list));
     }
 
 void handle_help(int sender_index, char *command){
@@ -157,11 +156,10 @@ void handle_help(int sender_index, char *command){
         );
     }
 
-    send(
+    send_all(
         clients[sender_index].socket,
         help_message,
-        strlen(help_message),
-        0
+        strlen(help_message)
     );
 }
 
@@ -176,11 +174,10 @@ void handle_whoami(int sender, char *command){
         clients[sender].username
     );
 
-    send(
+    send_all(
     clients[sender].socket,
     whoami_message,
-    strlen(whoami_message),
-    0
+    strlen(whoami_message)
 );
 
 }
@@ -188,10 +185,9 @@ void handle_whoami(int sender, char *command){
 
 void handle_pong(int sender_index, char *command)
 {
-    send(clients[sender_index].socket,
+    send_all(clients[sender_index].socket,
     "[WAYP] pong!\n",
-    strlen("[WAYP] pong!\n"),
-    0
+    strlen("[WAYP] pong!\n")
     );
 }
 
@@ -215,10 +211,9 @@ void handle_command(int sender_index, char *command){
         command
         );
         
-        send(clients[sender_index].socket ,
+        send_all(clients[sender_index].socket ,
         command_unknown,
-        strlen(command_unknown),
-        0   );
+        strlen(command_unknown));
     }
 }
 
@@ -232,11 +227,10 @@ void handle_private(int sender_index, int receiver_index, char *msg) {
         msg
     );
 
-    send(
+    send_all(
         clients[receiver_index].socket,
         private_message,
-        strlen(private_message),
-        0
+        strlen(private_message)
     );
 }
 
@@ -359,11 +353,10 @@ void *handle_client(void *arg) {
                         "[WAYP] Private message format: @username message\n"
                     );
 
-                    send(
+                    send_all(
                         client_fd,
                         error_message,
-                        strlen(error_message),
-                        0
+                        strlen(error_message)
                     );
 
                     break;
@@ -388,11 +381,10 @@ void *handle_client(void *arg) {
                         target_username
                     );
 
-                    send(
+                    send_all(
                         client_fd,
                         error_message,
-                        strlen(error_message),
-                        0
+                        strlen(error_message)
                     );
 
                     break;
@@ -430,8 +422,6 @@ void *handle_client(void *arg) {
         }
     }
 
-    /* Notify everyone else that this client left */
-
     snprintf(
         system_message,
         sizeof(system_message),
@@ -443,7 +433,6 @@ void *handle_client(void *arg) {
 
     printf("%s", system_message);
 
-    /* Remove client from client list */
 
     pthread_mutex_lock(&client_mutex);
 
