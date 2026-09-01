@@ -25,6 +25,29 @@ static int send_all(int sockfd, const void *buf, size_t len){
     return 0;
 }
 
+
+static int recv_all(int sockfd, void *buf, size_t len)
+{
+    size_t total_received =  0;
+    char *ptr = (char *)buf;
+
+    while (total_received < len){
+        ssize_t bytes_received = recv(sockfd,
+            ptr + total_received,
+            len - total_received,
+           0);
+           if(bytes_received <= 0){
+            return -1;
+           }
+           total_received += bytes_received;
+                }
+    return 0;
+}
+
+
+
+
+
 #define MAX_CLIENTS 100
 
 struct Client {
