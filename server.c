@@ -44,6 +44,19 @@ static int recv_all(int sockfd, void *buf, size_t len)
     return 0;
 }
 
+static int send_message(int sockfd, const char *message){
+    uint32_t message_length = strlen(message);
+    uint32_t network_length = htonl(message_length);
+
+    if(send_all(sockfd, &network_length, sizeof(network_length)) == -1){
+        return -1;
+    }
+    if(send_all(sockfd, message, message_length) == -1){
+        return -1;
+    }
+        return 0;
+}
+
 
 
 
