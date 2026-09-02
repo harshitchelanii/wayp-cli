@@ -25,24 +25,52 @@ static int send_all(int sockfd, const void *buf, size_t len){
     return 0;
 }
 
-
 static int recv_all(int sockfd, void *buf, size_t len)
 {
-    size_t total_received =  0;
+    size_t total_received = 0;
     char *ptr = (char *)buf;
 
-    while (total_received < len){
-        ssize_t bytes_received = recv(sockfd,
+    while (total_received < len) {
+        ssize_t bytes_received = recv(
+            sockfd,
             ptr + total_received,
             len - total_received,
-           0);
-           if(bytes_received <= 0){
+            0
+        );
+
+        if (bytes_received <= 0) {
             return -1;
-           }
-           total_received += bytes_received;
-                }
+        }
+
+        total_received += bytes_received;
+    }
+
     return 0;
 }
+
+static int recv_message(int sockfd, char *buffer, size_t buffer_size)
+{
+    uint32_t network_length;
+
+    if (recv_all(sockfd, &network_length, sizeof(network_length)) == -1) {
+        return -1;
+    }
+
+    uint32_t message_length = ntohl(network_length);
+
+    if (message_length >= buffer_size) {
+        return -1;
+    }
+
+    if (recv_all(sockfd, buffer, message_length) == -1) {
+        return -1;
+    }
+
+    buffer[message_length] = '\0';
+
+    return 0;
+}
+
 
 static int send_message(int sockfd, const char *message){
     uint32_t message_length = strlen(message);
