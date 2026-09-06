@@ -382,24 +382,11 @@ void *handle_client(void *arg) {
 
     while (1) {
 
-        int bytes_received = recv(
-            client_fd,
-            buffer,
-            sizeof(buffer) - 1,
-            0
-        );
-
-        if (bytes_received == -1) {
-            perror("recv");
-            break;
-        }
-
-        if (bytes_received == 0) {
-            break;
-        }
-
-        buffer[bytes_received] = '\0';
-        buffer[strcspn(buffer, "\r\n")] = '\0';
+    if (recv_message(client_fd, buffer, sizeof(buffer)) == -1)
+    {
+        printf("Client disconnected.\n");
+        break;
+    }
 
         enum MessageType type = get_message_type(buffer);
 
