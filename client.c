@@ -17,6 +17,49 @@
     #define closesocket close
 #endif
 
+static int send_all(socket_t sockfd, const void *buf, size_t len)
+{
+    size_t total_sent = 0;
+    const char *ptr = (const char *)buf;
+
+    while (total_sent < len)
+    {
+        int bytes_sent = send(
+            sockfd,
+            ptr + total_sent,
+            (int)(len - total_sent),
+            0
+        );
+
+        if (bytes_sent <= 0)
+        {
+            return -1;
+        }
+
+        total_sent += bytes_sent;
+    }
+
+    return 0;
+}
+
+static int send_message(socket_t sockfd, const char *message)
+{
+    uint32_t message_length = (uint32_t)strlen(message);
+    uint32_t network_length = htonl(message_length);
+
+    if (send_all(sockfd, &network_length, sizeof(network_length)) == -1)
+    {
+        return -1;
+    }
+
+    if (send_all(sockfd, message, message_length) == -1)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
 
 void *receive_messages(void *arg)
 {
@@ -70,7 +113,7 @@ int main(void){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
-    inet_pton(AF_INET, "172.24.128.1", &server_addr.sin_addr);
+    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
     if(connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
         perror("Connection Failed.\n");
         exit(EXIT_FAILURE);
@@ -92,10 +135,10 @@ int main(void){
     pthread_detach(receive_thread);
 
     char message[1024];
-        send(client_fd, username, strlen(username), 0);
+        send(client_fd, username, strlen(username));
     while(1) {
         fgets(message, sizeof(message), stdin);
-         send(client_fd, message, strlen(message), 0);
+         send(client_fd, message, strlen(message));
     }
     return 0;
 }
