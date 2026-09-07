@@ -328,27 +328,19 @@ void *handle_client(void *arg) {
     /* Receive username */
     char username[50];
 
-    int bytes_received = recv(
-        client_fd,
-        username,
-        sizeof(username) - 1,
-        0
-    );
+    if (recv_message(client_fd, username, sizeof(username)) == -1)
+{
+    pthread_mutex_lock(&client_mutex);
 
-    if (bytes_received <= 0) {
-        pthread_mutex_lock(&client_mutex);
+    clients[client_index].socket = -1;
 
-        clients[client_index].socket = -1;
+    pthread_mutex_unlock(&client_mutex);
 
-        pthread_mutex_unlock(&client_mutex);
+    close(client_fd);
+    return NULL;
+}
 
-        close(client_fd);
-        return NULL;
-    }
-
-    username[bytes_received] = '\0';
     username[strcspn(username, "\r\n")] = '\0';
-
     
     pthread_mutex_lock(&client_mutex);
 
