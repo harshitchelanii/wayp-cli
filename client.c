@@ -135,10 +135,10 @@ int main(void){
     pthread_detach(receive_thread);
 
     char message[1024];
-        send(client_fd, username, strlen(username));
+        send_message(client_fd, username);
     while(1) {
         fgets(message, sizeof(message), stdin);
-         send(client_fd, message, strlen(message));
+         send_message(client_fd, message);
     }
     return 0;
 }
