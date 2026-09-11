@@ -17,6 +17,7 @@
     typedef int socket_t;
     #define closesocket close
 #endif
+#define MAX_MESSAGE_SIZE 1024
 
 static int send_all(socket_t sockfd, const void *buf, size_t len)
 {
@@ -95,8 +96,8 @@ static int recv_message(socket_t sockfd, char *buffer, size_t buffer_size)
 
     uint32_t message_length = ntohl(network_length);
 
-    if (message_length >= buffer_size) {
-        return -1;
+   if (message_length >= buffer_size || message_length > MAX_MESSAGE_SIZE) {
+    return -1;
     }
 
     if (recv_all(sockfd, buffer, message_length) == -1) {

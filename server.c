@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sys/socket.h>
+#define MAX_MESSAGE_SIZE 1024
 
 static int send_all(int sockfd, const void *buf, size_t len){
     size_t total_sent = 0;
@@ -58,9 +59,9 @@ static int recv_message(int sockfd, char *buffer, size_t buffer_size)
 
     uint32_t message_length = ntohl(network_length);
 
-    if (message_length >= buffer_size) {
-        return -1;
-    }
+    if (message_length >= buffer_size || message_length > MAX_MESSAGE_SIZE) {
+    return -1;
+}
 
     if (recv_all(sockfd, buffer, message_length) == -1) {
         return -1;
