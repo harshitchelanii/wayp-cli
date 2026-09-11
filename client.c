@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <pthread.h>
 
 #ifdef _WIN32
@@ -61,28 +62,66 @@ static int send_message(socket_t sockfd, const char *message)
 }
 
 
+static int recv_all(socket_t sockfd, void *buf, size_t len)
+{
+    size_t total_received = 0;
+    char *ptr = (char *)buf;
+
+    while (total_received < len) {
+        int bytes_received = recv(
+            sockfd,
+            ptr + total_received,
+            (int)(len - total_received),
+            0
+        );
+
+        if (bytes_received <= 0) {
+            return -1;
+        }
+
+        total_received += bytes_received;
+    }
+
+    return 0;
+}
+
+static int recv_message(socket_t sockfd, char *buffer, size_t buffer_size)
+{
+    uint32_t network_length;
+
+    if (recv_all(sockfd, &network_length, sizeof(network_length)) == -1) {
+        return -1;
+    }
+
+    uint32_t message_length = ntohl(network_length);
+
+    if (message_length >= buffer_size) {
+        return -1;
+    }
+
+    if (recv_all(sockfd, buffer, message_length) == -1) {
+        return -1;
+    }
+
+    buffer[message_length] = '\0';
+
+    return 0;
+}
+
 void *receive_messages(void *arg)
 {
     socket_t client_fd = *(socket_t *)arg;
+    free(arg);
 
     char buffer[1024];
 
     while(1)
     {
-        int bytes_received = recv(
-            client_fd,
-            buffer,
-            sizeof(buffer) - 1,
-            0
-        );
-
-        if(bytes_received <= 0)
+        if (recv_message(client_fd, buffer, sizeof(buffer)) == -1)
         {
             printf("Server disconnected.\n");
             break;
         }
-
-        buffer[bytes_received] = '\0';
 
         if(strcmp(buffer, "__CLEAR__") == 0)
         {
@@ -138,6 +177,7 @@ int main(void){
         send_message(client_fd, username);
     while(1) {
         fgets(message, sizeof(message), stdin);
+        message[strcspn(message, "\r\n")] = '\0';
          send_message(client_fd, message);
     }
     return 0;
