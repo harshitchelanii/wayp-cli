@@ -39,7 +39,10 @@ static int recv_all(int sockfd, void *buf, size_t len)
             0
         );
 
-        if (bytes_received <= 0) {
+        if (bytes_received == 0) {
+            return 0;
+        }
+        if (bytes_received < 0){
             return -1;
         }
 
