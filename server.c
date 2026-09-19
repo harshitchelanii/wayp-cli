@@ -40,7 +40,7 @@ static int recv_all(int sockfd, void *buf, size_t len)
         );
 
         if (bytes_received == 0) {
-            return 0;
+            return 1;
         }
         if (bytes_received < 0){
             return -1;
@@ -56,8 +56,10 @@ static int recv_message(int sockfd, char *buffer, size_t buffer_size)
 {
     uint32_t network_length;
 
-    if (recv_all(sockfd, &network_length, sizeof(network_length)) == -1) {
-        return -1;
+   int result = recv_all(sockfd, &network_length, sizeof(network_length));
+
+    if (result !=0) {
+        return result;
     }
 
     uint32_t message_length = ntohl(network_length);
@@ -66,9 +68,11 @@ static int recv_message(int sockfd, char *buffer, size_t buffer_size)
     return -1;
 }
 
-    if (recv_all(sockfd, buffer, message_length) == -1) {
-        return -1;
-    }
+    result = recv_all(sockfd, buffer, message_length);
+
+if (result != 0) {
+    return result;
+}
 
     buffer[message_length] = '\0';
 
@@ -369,11 +373,21 @@ void *handle_client(void *arg) {
 
     while (1) {
 
-    if (recv_message(client_fd, buffer, sizeof(buffer)) == -1)
+    int result = recv_message(client_fd, buffer, sizeof(buffer));
+
+if (result != 0)
+{
+    if (result == 1)
     {
         printf("Client disconnected.\n");
-        break;
     }
+    else
+    {
+        printf("Error receiving message from client.\n");
+    }
+
+    break;
+}
 
         enum MessageType type = get_message_type(buffer);
 
