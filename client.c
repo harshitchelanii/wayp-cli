@@ -77,7 +77,7 @@ static int recv_all(socket_t sockfd, void *buf, size_t len)
         );
 
         if (bytes_received == 0) {
-            return 0;
+            return 1;
         }
         if (bytes_received < 0){
             return -1;
@@ -92,9 +92,11 @@ static int recv_all(socket_t sockfd, void *buf, size_t len)
 static int recv_message(socket_t sockfd, char *buffer, size_t buffer_size)
 {
     uint32_t network_length;
+    
+    int result = recv_all(sockfd, &network_length, sizeof(network_length));
 
-    if (recv_all(sockfd, &network_length, sizeof(network_length)) == -1) {
-        return -1;
+    if (result !=0) {
+        return result;
     }
 
     uint32_t message_length = ntohl(network_length);
@@ -103,9 +105,11 @@ static int recv_message(socket_t sockfd, char *buffer, size_t buffer_size)
     return -1;
     }
 
-    if (recv_all(sockfd, buffer, message_length) == -1) {
-        return -1;
-    }
+    result = recv_all(sockfd, buffer, message_length);
+
+if (result != 0) {
+    return result;
+}
 
     buffer[message_length] = '\0';
 
@@ -120,12 +124,22 @@ void *receive_messages(void *arg)
     char buffer[1024];
 
     while(1)
+{
+    int result = recv_message(client_fd, buffer, sizeof(buffer));
+
+    if (result != 0)
     {
-        if (recv_message(client_fd, buffer, sizeof(buffer)) == -1)
+        if (result == 1)
         {
             printf("Server disconnected.\n");
-            break;
         }
+        else
+        {
+            printf("Error receiving message.\n");
+        }
+
+        break;
+    }
 
         if(strcmp(buffer, "__CLEAR__") == 0)
         {
