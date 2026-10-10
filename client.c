@@ -145,11 +145,14 @@ void *receive_messages(void *arg)
         {
             printf("\033[2J\033[H");
             printf("[WAYP] Messages cleared.\n");
+            printf("> \033[2mType your message...\033[0m\r> ");
             fflush(stdout);
         }
         else
         {
+            printf("\r\033[2K");
             printf("%s", buffer);
+            printf("> \033[2mType your message...\033[0m\r> ");
             fflush(stdout);
         }
     }
@@ -194,8 +197,24 @@ int main(void){
     char message[1024];
         send_message(client_fd, username);
     while(1) {
-        fgets(message, sizeof(message), stdin);
+        printf("> \033[2mType your message...\033[0m\r> ");
+        fflush(stdout);
+        if (fgets(message, sizeof(message), stdin) == NULL)
+        {
+            break;
+        }
+        printf("\033[A\033[2K\r");
+        fflush(stdout);
         message[strcspn(message, "\r\n")] = '\0';
+        if (message[0] == '\0')
+        {
+            continue;
+        }
+        if (message[0] != '>')
+        {
+            printf("You: %s\n", message);
+            fflush(stdout);
+        }
          send_message(client_fd, message);
     }
     return 0;
