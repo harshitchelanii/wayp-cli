@@ -259,6 +259,12 @@ void handle_pong(int sender_index, char *command)
 
 
 void handle_command(int sender_index, char *command){
+    char *args = "";
+    char *space = strchr(command, ' ');
+    if (space != NULL) {
+    *space = '\0';
+    args = space + 1;
+}
     int command_found = 0;
     char command_unknown[200];
     int command_count = sizeof(commands) / sizeof(commands[0]);
@@ -388,7 +394,7 @@ if (result != 0)
 
     break;
 }
-
+ 
         enum MessageType type = get_message_type(buffer);
 
         switch (type) {
