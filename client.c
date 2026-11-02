@@ -27,6 +27,12 @@
 
 #define MAX_MESSAGE_SIZE 1024
 #define SERVER_PORT 8080
+
+/* The server we connect to when you just press enter */
+#ifndef BASE_SERVER_HOST
+    #define BASE_SERVER_HOST "127.0.0.1"
+#endif
+
 #define DISCOVERY_PORT 8081
 #define RFCOMM_CHANNEL 1
 #define DISCOVERY_REQUEST "WAYP_DISCOVER"
@@ -352,15 +358,53 @@ static socket_t connect_bluetooth(const char *address)
 }
 #endif
 
+/* WAYP_SERVER lets you change the base server without rebuilding */
+static const char *base_server_host(void)
+{
+    const char *host = getenv("WAYP_SERVER");
+
+    if (host != NULL && host[0] != '\0')
+    {
+        return host;
+    }
+
+    return BASE_SERVER_HOST;
+}
+
+/* Takes "host" or "host:port", and edits address while splitting it */
+static socket_t connect_to_address(char *address)
+{
+    int port = SERVER_PORT;
+
+    char *colon = strrchr(address, ':');
+
+    if (colon != NULL)
+    {
+        *colon = '\0';
+
+        port = atoi(colon + 1);
+
+        if (port <= 0)
+        {
+            port = SERVER_PORT;
+        }
+    }
+
+    printf("Connecting to %s on port %d...\n", address, port);
+
+    return connect_to_host(address, port);
+}
+
 static socket_t connect_to_server(void)
 {
     char choice[16];
     char host[64];
 
     printf("How do you want to connect?\n");
-    printf("  1) Internet  - type the server address\n");
-    printf("  2) Wlan      - find the server on this network\n");
-    printf("  3) Bluetooth - type the server bluetooth address\n");
+    printf("  [enter]      - base server (%s)\n", base_server_host());
+    printf("  1) Address   - type any other server address\n");
+    printf("  2) Wlan      - find a server on this network\n");
+    printf("  3) Bluetooth - type a server bluetooth address\n");
     printf("Choice : ");
     fflush(stdout);
 
@@ -370,6 +414,14 @@ static socket_t connect_to_server(void)
     }
 
     choice[strcspn(choice, "\r\n")] = '\0';
+
+    if (choice[0] == '\0')
+    {
+        strncpy(host, base_server_host(), sizeof(host) - 1);
+        host[sizeof(host) - 1] = '\0';
+
+        return connect_to_address(host);
+    }
 
     if (strcmp(choice, "2") == 0)
     {
@@ -407,7 +459,7 @@ static socket_t connect_to_server(void)
 #endif
     }
 
-    printf("Server address (host or ip, empty for 127.0.0.1) : ");
+    printf("Server address (host, ip, or host:port) : ");
     fflush(stdout);
 
     if (fgets(host, sizeof(host), stdin) == NULL)
@@ -419,11 +471,11 @@ static socket_t connect_to_server(void)
 
     if (host[0] == '\0')
     {
-        strncpy(host, "127.0.0.1", sizeof(host) - 1);
+        strncpy(host, base_server_host(), sizeof(host) - 1);
         host[sizeof(host) - 1] = '\0';
     }
 
-    return connect_to_host(host, SERVER_PORT);
+    return connect_to_address(host);
 }
 
 /* Keeps asking until the server accepts the name as unique */
