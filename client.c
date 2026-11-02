@@ -12,12 +12,25 @@
 #else
     #include <unistd.h>
     #include <arpa/inet.h>
+    #include <netdb.h>
     #include <netinet/in.h>
     #include <sys/socket.h>
+    #include <sys/time.h>
     typedef int socket_t;
     #define closesocket close
 #endif
+
+#ifdef ENABLE_BLUETOOTH
+    #include <bluetooth/bluetooth.h>
+    #include <bluetooth/rfcomm.h>
+#endif
+
 #define MAX_MESSAGE_SIZE 1024
+#define SERVER_PORT 8080
+#define DISCOVERY_PORT 8081
+#define RFCOMM_CHANNEL 1
+#define DISCOVERY_REQUEST "WAYP_DISCOVER"
+#define DISCOVERY_REPLY "WAYP_SERVER"
 
 static int send_all(socket_t sockfd, const void *buf, size_t len)
 {
@@ -163,26 +176,321 @@ void *receive_messages(void *arg)
 
 
 
-int main(void){
+static socket_t connect_to_host(const char *host, int port)
+{
+    char port_text[16];
+
+    snprintf(port_text, sizeof(port_text), "%d", port);
+
+    struct addrinfo hints;
+
+    memset(&hints, 0, sizeof(hints));
+
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    struct addrinfo *results = NULL;
+
+    if (getaddrinfo(host, port_text, &hints, &results) != 0)
+    {
+        printf("Could not resolve \"%s\".\n", host);
+        return -1;
+    }
+
+    socket_t client_fd = -1;
+
+    for (struct addrinfo *entry = results; entry != NULL; entry = entry->ai_next)
+    {
+        client_fd = socket(
+            entry->ai_family,
+            entry->ai_socktype,
+            entry->ai_protocol
+        );
+
+        if (client_fd == -1)
+        {
+            continue;
+        }
+
+        if (connect(client_fd, entry->ai_addr, (int)entry->ai_addrlen) == 0)
+        {
+            break;
+        }
+
+        closesocket(client_fd);
+        client_fd = -1;
+    }
+
+    freeaddrinfo(results);
+
+    return client_fd;
+}
+
+/* Shouts on the local network and waits for a wayp server to answer */
+static int discover_server(char *host, size_t host_size)
+{
+    socket_t discovery_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (discovery_fd == -1)
+    {
+        return -1;
+    }
+
+    int broadcast = 1;
+
+    setsockopt(
+        discovery_fd,
+        SOL_SOCKET,
+        SO_BROADCAST,
+        (const char *)&broadcast,
+        sizeof(broadcast)
+    );
+
+    struct timeval timeout;
+
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+
+    setsockopt(
+        discovery_fd,
+        SOL_SOCKET,
+        SO_RCVTIMEO,
+        (const char *)&timeout,
+        sizeof(timeout)
+    );
+
+    struct sockaddr_in broadcast_addr;
+
+    memset(&broadcast_addr, 0, sizeof(broadcast_addr));
+
+    broadcast_addr.sin_family = AF_INET;
+    broadcast_addr.sin_port = htons(DISCOVERY_PORT);
+    broadcast_addr.sin_addr.s_addr = INADDR_BROADCAST;
+
+    sendto(
+        discovery_fd,
+        DISCOVERY_REQUEST,
+        strlen(DISCOVERY_REQUEST),
+        0,
+        (struct sockaddr *)&broadcast_addr,
+        sizeof(broadcast_addr)
+    );
+
+    char reply[64];
+
+    struct sockaddr_in server_addr;
+    socklen_t addr_len = sizeof(server_addr);
+
+    int received = recvfrom(
+        discovery_fd,
+        reply,
+        sizeof(reply) - 1,
+        0,
+        (struct sockaddr *)&server_addr,
+        &addr_len
+    );
+
+    closesocket(discovery_fd);
+
+    if (received <= 0)
+    {
+        return -1;
+    }
+
+    reply[received] = '\0';
+
+    if (strncmp(reply, DISCOVERY_REPLY, strlen(DISCOVERY_REPLY)) != 0)
+    {
+        return -1;
+    }
+
+    if (inet_ntop(AF_INET, &server_addr.sin_addr, host, host_size) == NULL)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+#ifdef ENABLE_BLUETOOTH
+static socket_t connect_bluetooth(const char *address)
+{
+    socket_t client_fd = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+
+    if (client_fd == -1)
+    {
+        perror("bluetooth socket");
+        return -1;
+    }
+
+    struct sockaddr_rc server_addr;
+
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    server_addr.rc_family = AF_BLUETOOTH;
+    server_addr.rc_channel = RFCOMM_CHANNEL;
+
+    if (str2ba(address, &server_addr.rc_bdaddr) != 0)
+    {
+        printf("That is not a valid bluetooth address.\n");
+        closesocket(client_fd);
+        return -1;
+    }
+
+    if (connect(
+            client_fd,
+            (struct sockaddr *)&server_addr,
+            sizeof(server_addr)
+        ) == -1)
+    {
+        perror("bluetooth connect");
+        closesocket(client_fd);
+        return -1;
+    }
+
+    return client_fd;
+}
+#endif
+
+static socket_t connect_to_server(void)
+{
+    char choice[16];
+    char host[64];
+
+    printf("How do you want to connect?\n");
+    printf("  1) Internet  - type the server address\n");
+    printf("  2) Wlan      - find the server on this network\n");
+    printf("  3) Bluetooth - type the server bluetooth address\n");
+    printf("Choice : ");
+    fflush(stdout);
+
+    if (fgets(choice, sizeof(choice), stdin) == NULL)
+    {
+        return -1;
+    }
+
+    choice[strcspn(choice, "\r\n")] = '\0';
+
+    if (strcmp(choice, "2") == 0)
+    {
+        printf("Looking for a server on this network...\n");
+
+        if (discover_server(host, sizeof(host)) != 0)
+        {
+            printf("No server found on this network.\n");
+            return -1;
+        }
+
+        printf("Found a server at %s\n", host);
+
+        return connect_to_host(host, SERVER_PORT);
+    }
+
+    if (strcmp(choice, "3") == 0)
+    {
+#ifdef ENABLE_BLUETOOTH
+        printf("Server bluetooth address (AA:BB:CC:DD:EE:FF) : ");
+        fflush(stdout);
+
+        if (fgets(host, sizeof(host), stdin) == NULL)
+        {
+            return -1;
+        }
+
+        host[strcspn(host, "\r\n")] = '\0';
+
+        return connect_bluetooth(host);
+#else
+        printf("This build has no bluetooth support.\n");
+        printf("Rebuild with : gcc -DENABLE_BLUETOOTH client.c -lpthread -lbluetooth\n");
+        return -1;
+#endif
+    }
+
+    printf("Server address (host or ip, empty for 127.0.0.1) : ");
+    fflush(stdout);
+
+    if (fgets(host, sizeof(host), stdin) == NULL)
+    {
+        return -1;
+    }
+
+    host[strcspn(host, "\r\n")] = '\0';
+
+    if (host[0] == '\0')
+    {
+        strncpy(host, "127.0.0.1", sizeof(host) - 1);
+        host[sizeof(host) - 1] = '\0';
+    }
+
+    return connect_to_host(host, SERVER_PORT);
+}
+
+/* Keeps asking until the server accepts the name as unique */
+static int register_username(socket_t client_fd)
+{
     char username[50];
+    char reply[64];
+
+    while (1)
+    {
+        printf("Enter username : ");
+        fflush(stdout);
+
+        if (fgets(username, sizeof(username), stdin) == NULL)
+        {
+            return -1;
+        }
+
+        username[strcspn(username, "\r\n")] = '\0';
+
+        if (username[0] == '\0')
+        {
+            printf("Username cannot be empty.\n");
+            continue;
+        }
+
+        if (send_message(client_fd, username) == -1)
+        {
+            return -1;
+        }
+
+        if (recv_message(client_fd, reply, sizeof(reply)) != 0)
+        {
+            return -1;
+        }
+
+        if (strcmp(reply, "__NAME_OK__") == 0)
+        {
+            printf("Welcome, %s!\n", username);
+            return 0;
+        }
+
+        if (strcmp(reply, "__NAME_TAKEN__") == 0)
+        {
+            printf("\"%s\" is already taken, pick another one.\n", username);
+            continue;
+        }
+
+        printf("That username is not allowed, pick another one.\n");
+    }
+}
+
+int main(void){
 #ifdef _WIN32
     WSADATA wsa_data;
     WSAStartup(MAKEWORD(2, 2), &wsa_data);
 #endif
-    socket_t client_fd = socket(AF_INET, SOCK_STREAM, 0);
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(8080);
-    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
-    if(connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1){
-        perror("Connection Failed.\n");
+    socket_t client_fd = connect_to_server();
+    if(client_fd == -1){
+        printf("Connection Failed.\n");
         exit(EXIT_FAILURE);
     }
     printf("Connected to server!\n");
-    printf("Enter username : ");
-    fgets(username, sizeof(username), stdin);
-    if (username[strlen(username) - 1] == '\n'){
-        username[strlen(username)- 1] = '\0';
+    if(register_username(client_fd) == -1){
+        printf("Could not register a username.\n");
+        closesocket(client_fd);
+        exit(EXIT_FAILURE);
     }
     socket_t *socket_ptr = malloc(sizeof(socket_t));
 
@@ -195,7 +503,6 @@ int main(void){
     pthread_detach(receive_thread);
 
     char message[1024];
-        send_message(client_fd, username);
     while(1) {
         printf("> \033[2mType your message...\033[0m\r> ");
         fflush(stdout);
