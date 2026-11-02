@@ -270,7 +270,7 @@ void handle_command(int sender_index, char *command){
     int command_count = sizeof(commands) / sizeof(commands[0]);
     for(int i = 0; i < command_count; i++){
         if(strcmp(command, commands[i].name) == 0){
-            commands[i].handler(sender_index, command);
+            commands[i].handler(sender_index, args);
             command_found = 1;
             break;
         }
