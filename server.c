@@ -10,15 +10,9 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
-#ifdef ENABLE_BLUETOOTH
-    #include <bluetooth/bluetooth.h>
-    #include <bluetooth/rfcomm.h>
-#endif
-
 #define MAX_MESSAGE_SIZE 1024
 #define SERVER_PORT 8080
 #define DISCOVERY_PORT 8081
-#define RFCOMM_CHANNEL 1
 #define DISCOVERY_REQUEST "WAYP_DISCOVER"
 #define DISCOVERY_REPLY "WAYP_SERVER"
 
@@ -686,53 +680,6 @@ static int create_tcp_listener(void)
     return server_fd;
 }
 
-#ifdef ENABLE_BLUETOOTH
-static int create_bluetooth_listener(void)
-{
-    int server_fd = socket(
-        AF_BLUETOOTH,
-        SOCK_STREAM,
-        BTPROTO_RFCOMM
-    );
-
-    if (server_fd == -1) {
-        perror("bluetooth socket");
-        return -1;
-    }
-
-    struct sockaddr_rc local_addr;
-
-    memset(
-        &local_addr,
-        0,
-        sizeof(local_addr)
-    );
-
-    local_addr.rc_family = AF_BLUETOOTH;
-    local_addr.rc_bdaddr = *BDADDR_ANY;
-    local_addr.rc_channel = RFCOMM_CHANNEL;
-
-    if (bind(
-            server_fd,
-            (struct sockaddr *)&local_addr,
-            sizeof(local_addr)
-        ) < 0) {
-
-        perror("bluetooth bind");
-        close(server_fd);
-        return -1;
-    }
-
-    if (listen(server_fd, 5) == -1) {
-        perror("bluetooth listen");
-        close(server_fd);
-        return -1;
-    }
-
-    return server_fd;
-}
-#endif
-
 /* Answers the broadcast a client sends while looking for us on the wlan */
 void *discovery_loop(void *arg) {
 
@@ -876,33 +823,6 @@ int main(void) {
 
         pthread_detach(discovery_thread);
     }
-
-#ifdef ENABLE_BLUETOOTH
-    struct Listener bluetooth_listener;
-
-    bluetooth_listener.socket = create_bluetooth_listener();
-    bluetooth_listener.name = "bluetooth";
-
-    if (bluetooth_listener.socket != -1) {
-
-        printf(
-            "Server listening on rfcomm channel %d (bluetooth)...\n",
-            RFCOMM_CHANNEL
-        );
-
-        pthread_t bluetooth_thread;
-
-        if (pthread_create(
-                &bluetooth_thread,
-                NULL,
-                accept_loop,
-                &bluetooth_listener
-            ) == 0) {
-
-            pthread_detach(bluetooth_thread);
-        }
-    }
-#endif
 
     accept_loop(&tcp_listener);
 

@@ -20,21 +20,10 @@
     #define closesocket close
 #endif
 
-#ifdef ENABLE_BLUETOOTH
-    #include <bluetooth/bluetooth.h>
-    #include <bluetooth/rfcomm.h>
-#endif
-
 #define MAX_MESSAGE_SIZE 1024
 #define SERVER_PORT 8080
 
-/* The server we connect to when you just press enter */
-#ifndef BASE_SERVER_HOST
-    #define BASE_SERVER_HOST "127.0.0.1"
-#endif
-
 #define DISCOVERY_PORT 8081
-#define RFCOMM_CHANNEL 1
 #define DISCOVERY_REQUEST "WAYP_DISCOVER"
 #define DISCOVERY_REPLY "WAYP_SERVER"
 
@@ -318,164 +307,21 @@ static int discover_server(char *host, size_t host_size)
     return 0;
 }
 
-#ifdef ENABLE_BLUETOOTH
-static socket_t connect_bluetooth(const char *address)
-{
-    socket_t client_fd = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
-
-    if (client_fd == -1)
-    {
-        perror("bluetooth socket");
-        return -1;
-    }
-
-    struct sockaddr_rc server_addr;
-
-    memset(&server_addr, 0, sizeof(server_addr));
-
-    server_addr.rc_family = AF_BLUETOOTH;
-    server_addr.rc_channel = RFCOMM_CHANNEL;
-
-    if (str2ba(address, &server_addr.rc_bdaddr) != 0)
-    {
-        printf("That is not a valid bluetooth address.\n");
-        closesocket(client_fd);
-        return -1;
-    }
-
-    if (connect(
-            client_fd,
-            (struct sockaddr *)&server_addr,
-            sizeof(server_addr)
-        ) == -1)
-    {
-        perror("bluetooth connect");
-        closesocket(client_fd);
-        return -1;
-    }
-
-    return client_fd;
-}
-#endif
-
-/* WAYP_SERVER lets you change the base server without rebuilding */
-static const char *base_server_host(void)
-{
-    const char *host = getenv("WAYP_SERVER");
-
-    if (host != NULL && host[0] != '\0')
-    {
-        return host;
-    }
-
-    return BASE_SERVER_HOST;
-}
-
-/* Takes "host" or "host:port", and edits address while splitting it */
-static socket_t connect_to_address(char *address)
-{
-    int port = SERVER_PORT;
-
-    char *colon = strrchr(address, ':');
-
-    if (colon != NULL)
-    {
-        *colon = '\0';
-
-        port = atoi(colon + 1);
-
-        if (port <= 0)
-        {
-            port = SERVER_PORT;
-        }
-    }
-
-    printf("Connecting to %s on port %d...\n", address, port);
-
-    return connect_to_host(address, port);
-}
-
 static socket_t connect_to_server(void)
 {
-    char choice[16];
     char host[64];
 
-    printf("How do you want to connect?\n");
-    printf("  [enter]      - base server (%s)\n", base_server_host());
-    printf("  1) Address   - type any other server address\n");
-    printf("  2) Wlan      - find a server on this network\n");
-    printf("  3) Bluetooth - type a server bluetooth address\n");
-    printf("Choice : ");
-    fflush(stdout);
+    printf("Looking for a server on this network...\n");
 
-    if (fgets(choice, sizeof(choice), stdin) == NULL)
+    if (discover_server(host, sizeof(host)) != 0)
     {
+        printf("No server found on this network.\n");
         return -1;
     }
 
-    choice[strcspn(choice, "\r\n")] = '\0';
+    printf("Found a server at %s\n", host);
 
-    if (choice[0] == '\0')
-    {
-        strncpy(host, base_server_host(), sizeof(host) - 1);
-        host[sizeof(host) - 1] = '\0';
-
-        return connect_to_address(host);
-    }
-
-    if (strcmp(choice, "2") == 0)
-    {
-        printf("Looking for a server on this network...\n");
-
-        if (discover_server(host, sizeof(host)) != 0)
-        {
-            printf("No server found on this network.\n");
-            return -1;
-        }
-
-        printf("Found a server at %s\n", host);
-
-        return connect_to_host(host, SERVER_PORT);
-    }
-
-    if (strcmp(choice, "3") == 0)
-    {
-#ifdef ENABLE_BLUETOOTH
-        printf("Server bluetooth address (AA:BB:CC:DD:EE:FF) : ");
-        fflush(stdout);
-
-        if (fgets(host, sizeof(host), stdin) == NULL)
-        {
-            return -1;
-        }
-
-        host[strcspn(host, "\r\n")] = '\0';
-
-        return connect_bluetooth(host);
-#else
-        printf("This build has no bluetooth support.\n");
-        printf("Rebuild with : gcc -DENABLE_BLUETOOTH client.c -lpthread -lbluetooth\n");
-        return -1;
-#endif
-    }
-
-    printf("Server address (host, ip, or host:port) : ");
-    fflush(stdout);
-
-    if (fgets(host, sizeof(host), stdin) == NULL)
-    {
-        return -1;
-    }
-
-    host[strcspn(host, "\r\n")] = '\0';
-
-    if (host[0] == '\0')
-    {
-        strncpy(host, base_server_host(), sizeof(host) - 1);
-        host[sizeof(host) - 1] = '\0';
-    }
-
-    return connect_to_address(host);
+    return connect_to_host(host, SERVER_PORT);
 }
 
 /* Keeps asking until the server accepts the name as unique */
